@@ -1,0 +1,44 @@
+from pyspark.ml.feature import VectorAssembler
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+
+# Create a SparkSession
+spark = SparkSession.builder \
+    .appName("LSTM with TensorFlowOnSpark") \
+    .getOrCreate()
+
+# Load your sequence data
+# Assuming you have a DataFrame with columns 'features' and 'label'
+# Replace 'your_data_path' with the path to your data
+data = spark.read.parquet("your_data_path")
+
+# Define your LSTM model using TensorFlow
+# Import TensorFlow and define your model architecture here
+import tensorflow as tf
+
+# Define your model architecture
+model = tf.keras.Sequential([
+    tf.keras.layers.LSTM(64, input_shape=(None, 1)),
+    tf.keras.layers.Dense(1)
+])
+
+# Compile the model
+model.compile(optimizer='adam', loss='mse')
+
+# Convert your Spark DataFrame to TensorFlow Dataset
+# Assume 'features' column contains your sequence data
+# and 'label' column contains the corresponding labels
+def to_tf_dataset(df):
+    features = df.select("features").rdd.flatMap(lambda x: x).collect()
+    labels = df.select("label").rdd.flatMap(lambda x: x).collect()
+    dataset = tf.data.Dataset.from_tensor_slices((features, labels))
+    return dataset
+
+# Convert Spark DataFrame to TensorFlow Dataset
+train_dataset = to_tf_dataset(data)
+
+# Train the model using TensorFlow
+model.fit(train_dataset, epochs=10)
+
+# Stop the SparkSession
+spark.stop()
